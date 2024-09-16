@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI HTML助手Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-cookie@3.0.1/dist/js.cookie.min.js"></script>
     <style>
         :root {
-            --primary-color: rgba(0, 102, 204, 0.8);
-            --secondary-color: rgba(21, 101, 192, 0.8);
-            --accent-color: rgba(249, 168, 37, 0.8);
-            --background-color: rgba(240, 248, 255, 0.8);
-            --card-color: rgba(255, 255, 255, 0.8);
+            --primary-color: rgba(100, 149, 237, 0.8);
+            --secondary-color: rgba(135, 206, 250, 0.8);
+            --accent-color: rgba(255, 182, 193, 0.8);
+            --background-color: rgba(240, 248, 255, 0.6);
+            --card-color: rgba(255, 255, 255, 0.7);
             --text-color: rgba(51, 51, 51, 0.9);
             --code-background: rgba(44, 62, 80, 0.8);
             --code-color: rgba(236, 240, 241, 0.9);
@@ -23,6 +24,8 @@
             margin: 0;
             padding: 20px;
             color: var(--text-color);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
 
         .container {
@@ -38,17 +41,41 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             padding: 20px;
             margin-bottom: 20px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            animation: fadeIn 0.5s ease;
         }
 
-        h1 {
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(20px); }
+        }
+
+        h1, h2 {
             color: var(--primary-color);
             text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        h1:hover, h2:hover {
+            transform: scale(1.05);
         }
 
         label {
             display: block;
             margin-bottom: 5px;
             color: var(--text-color);
+            transition: all 0.3s ease;
         }
 
         input, textarea {
@@ -58,17 +85,25 @@
             border: 1px solid var(--secondary-color);
             border-radius: 10px;
             box-sizing: border-box;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 5px var(--accent-color);
         }
 
         button {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-radius: 10px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s, transform 0.3s;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         button:hover {
@@ -82,6 +117,8 @@
             margin-bottom: 20px;
             min-height: 300px;
             max-height: 50vh;
+            padding: 10px;
+            backdrop-filter: blur(5px);
         }
 
         .message {
@@ -94,6 +131,12 @@
             border-radius: 15px;
             padding: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .message-content:hover {
+            transform: scale(1.02);
         }
 
         .user-message .message-content {
@@ -115,12 +158,19 @@
             cursor: pointer;
             margin-left: 5px;
             border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .message-actions button:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-2px);
         }
 
         #inputContainer {
             display: flex;
             margin-top: 20px;
             margin-bottom: 20px;
+            align-items: flex-end;
         }
 
         #userInput {
@@ -132,12 +182,23 @@
             resize: vertical;
         }
 
+        #sendButton {
+            height: 36px;
+            white-space: nowrap;
+        }
+
         #previewContainer {
             width: 100%;
             height: 500px;
             border: none;
             border-radius: 20px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        #previewContainer:hover {
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
         }
 
         #apiSettingsBtn {
@@ -147,7 +208,7 @@
             z-index: 1000;
         }
 
-        #apiSettingsModal {
+        .modal {
             display: none;
             position: fixed;
             z-index: 1001;
@@ -156,15 +217,29 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.4);
+            animation: fadeIn 0.3s ease;
+            overflow-y: auto;
         }
 
         .modal-content {
             background-color: var(--card-color);
-            margin: 15% auto;
+            margin: 5% auto;
             padding: 20px;
             border-radius: 20px;
             width: 80%;
             max-width: 500px;
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-50px); opacity: 0; }
         }
 
         .close {
@@ -173,24 +248,14 @@
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .close:hover,
         .close:focus {
             color: #000;
             text-decoration: none;
-            cursor: pointer;
-        }
-
-        #editModal {
-            display: none;
-            position: fixed;
-            z-index: 1002;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.4);
+            transform: scale(1.1);
         }
 
         #editTextarea {
@@ -207,6 +272,61 @@
             padding: 10px;
             overflow-x: auto;
             font-family: monospace;
+            transition: all 0.3s ease;
+        }
+
+        .code-block:hover {
+            transform: scale(1.02);
+        }
+
+        #startPage {
+            text-align: center;
+        }
+
+        #conversationList {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #conversationList li {
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: rgba(100, 149, 237, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #conversationList li:hover {
+            transform: translateX(5px);
+            background-color: rgba(100, 149, 237, 0.4);
+        }
+
+        .conversation-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .delete-conversation, .rename-conversation {
+            background-color: rgba(255, 99, 71, 0.8);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .delete-conversation:hover, .rename-conversation:hover {
+            background-color: rgba(255, 99, 71, 1);
+        }
+
+        #backToListBtn {
+            margin-bottom: 20px;
         }
 
         @media (max-width: 768px) {
@@ -225,22 +345,36 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div id="startPage" class="container">
         <h1>AI HTML助手Pro</h1>
+        <div class="card">
+            <h2>对话列表</h2>
+            <ul id="conversationList"></ul>
+            <button onclick="createNewConversation()">创建新对话</button>
+        </div>
+    </div>
+
+    <div id="chatPage" class="container" style="display: none;">
+        <h1>AI HTML助手Pro</h1>
+        
+        <button id="backToListBtn" onclick="backToList()">返回对话列表</button>
         
         <div id="chatContainer" class="card"></div>
         
         <div id="inputContainer">
             <textarea id="userInput" placeholder="输入你的问题或指令" rows="1"></textarea>
-            <button onclick="sendMessage()">发送</button>
+            <button id="sendButton" onclick="sendMessage()">发送</button>
         </div>
 
         <div class="card">
             <label for="htmlInput">HTML代码：</label>
             <textarea id="htmlInput" rows="5" placeholder="这里显示最新的HTML代码"></textarea>
-            <button onclick="showPreviousHtml()">上一个代码</button>
-            <button onclick="showNextHtml()">下一个代码</button>
+            <button onclick="showPreviousHtml()">上一个</button>
+            <button onclick="showNextHtml()">下一个</button>
+            <button onclick="showHtmlCode()">展开</button>
         </div>
+
+        <iframe id="previewContainer"></iframe>
     </div>
 
     <button id="apiSettingsBtn">API设置</button>
@@ -262,6 +396,14 @@
         </div>
     </div>
 
+    <div id="htmlCodeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>HTML代码</h2>
+            <textarea id="htmlCodeArea" rows="10"></textarea>
+        </div>
+    </div>
+
     <div id="editModal" class="modal">
         <div class="modal-content">
             <textarea id="editTextarea"></textarea>
@@ -270,34 +412,66 @@
         </div>
     </div>
 
-    <iframe id="previewContainer"></iframe>
-
     <script>
         let conversationHistory = [];
         let htmlHistory = [];
         let currentHtmlIndex = -1;
+        let conversations = [];
+        let currentConversationIndex = -1;
+
+        const DEFAULT_API_URL = 'https://api2.nuoxero.xyz/v1/chat/completions';
+        const DEFAULT_API_KEY = 'sk-kcxdSCZqEVX1hwDfA5Ce2884EcE84dCdB6C63d0f09021e11';
+        const DEFAULT_MODEL = 'gpt-4o';
 
         // API设置相关
         const apiSettingsBtn = document.getElementById('apiSettingsBtn');
         const apiSettingsModal = document.getElementById('apiSettingsModal');
-        const closeBtn = apiSettingsModal.querySelector('.close');
+        const apiSettingsCloseBtn = apiSettingsModal.querySelector('.close');
 
         apiSettingsBtn.onclick = function() {
             apiSettingsModal.style.display = "block";
         }
 
-        closeBtn.onclick = function() {
+        apiSettingsCloseBtn.onclick = function() {
             apiSettingsModal.style.display = "none";
+        }
+
+        // HTML代码相关
+        const htmlCodeModal = document.getElementById('htmlCodeModal');
+        const htmlCodeCloseBtn = htmlCodeModal.querySelector('.close');
+
+        function showHtmlCode() {
+            const htmlCodeArea = document.getElementById('htmlCodeArea');
+            htmlCodeArea.value = document.getElementById('htmlInput').value;
+            htmlCodeModal.style.display = "block";
+        }
+
+        htmlCodeCloseBtn.onclick = function() {
+            htmlCodeModal.style.display = "none";
         }
 
         window.onclick = function(event) {
             if (event.target == apiSettingsModal) {
                 apiSettingsModal.style.display = "none";
             }
+            if (event.target == htmlCodeModal) {
+                htmlCodeModal.style.display = "none";
+            }
         }
 
         function saveApiSettings() {
-            // 这里可以添加保存API设置的逻辑
+            let apiUrl = document.getElementById('apiUrl').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const model = document.getElementById('model').value;
+
+            if (apiUrl && !apiUrl.endsWith('/v1/chat/completions')) {
+                apiUrl += '/v1/chat/completions';
+            }
+
+            Cookies.set('apiUrl', apiUrl);
+            Cookies.set('apiKey', apiKey);
+            Cookies.set('model', model);
+
             apiSettingsModal.style.display = "none";
         }
 
@@ -308,17 +482,119 @@
             this.style.height = (this.scrollHeight) + 'px';
         });
 
+        function createNewConversation() {
+            const newConversation = {
+                id: Date.now(),
+                name: `对话 ${conversations.length + 1}`,
+                messages: [],
+                htmlHistory: [],
+                currentHtmlIndex: -1
+            };
+            conversations.unshift(newConversation);
+            currentConversationIndex = 0;
+            saveConversations();
+            loadConversation(currentConversationIndex);
+        }
+
+        function loadConversation(index) {
+            currentConversationIndex = index;
+            const conversation = conversations[index];
+            conversationHistory = conversation.messages;
+            htmlHistory = conversation.htmlHistory;
+            currentHtmlIndex = conversation.currentHtmlIndex;
+
+            document.getElementById('startPage').style.display = 'none';
+            document.getElementById('chatPage').style.display = 'block';
+
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+            conversationHistory.forEach(message => {
+                addMessage(message.content, message.role === 'user');
+            });
+
+            if (htmlHistory.length > 0) {
+                updateHtmlInput(htmlHistory[currentHtmlIndex]);
+                updatePreview(htmlHistory[currentHtmlIndex]);
+            }
+        }
+
+        function saveConversations() {
+            Cookies.set('conversations', JSON.stringify(conversations));
+        }
+
+        function loadConversations() {
+            const savedConversations = Cookies.get('conversations');
+            if (savedConversations) {
+                conversations = JSON.parse(savedConversations);
+                updateConversationList();
+            }
+        }
+
+        function updateConversationList() {
+            const conversationList = document.getElementById('conversationList');
+            conversationList.innerHTML = '';
+            conversations.forEach((conversation, index) => {
+                const li = document.createElement('li');
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = conversation.name;
+                nameSpan.onclick = () => loadConversation(index);
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'conversation-actions';
+
+                const renameButton = document.createElement('button');
+                renameButton.textContent = '重命名';
+                renameButton.className = 'rename-conversation';
+                renameButton.onclick = (e) => {
+                    e.stopPropagation();
+                    renameConversation(index);
+                };
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = '删除';
+                deleteButton.className = 'delete-conversation';
+                deleteButton.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteConversation(index);
+                };
+                
+                actionsDiv.appendChild(renameButton);
+                actionsDiv.appendChild(deleteButton);
+                li.appendChild(nameSpan);
+                li.appendChild(actionsDiv);
+                conversationList.appendChild(li);
+            });
+        }
+
+        function deleteConversation(index) {
+            if (confirm('确定要删除这个对话吗？')) {
+                conversations.splice(index, 1);
+                saveConversations();
+                updateConversationList();
+            }
+        }
+
+        function renameConversation(index) {
+            const newName = prompt('请输入新的对话名称：', conversations[index].name);
+            if (newName) {
+                conversations[index].name = newName;
+                saveConversations();
+                updateConversationList();
+            }
+        }
+
+        function backToList() {
+            document.getElementById('chatPage').style.display = 'none';
+            document.getElementById('startPage').style.display = 'block';
+            updateConversationList();
+        }
+
         async function sendMessage() {
-            const apiUrl = document.getElementById('apiUrl').value;
-            const apiKey = document.getElementById('apiKey').value;
-            const model = document.getElementById('model').value;
+            const apiUrl = Cookies.get('apiUrl') || DEFAULT_API_URL;
+            const apiKey = Cookies.get('apiKey') || DEFAULT_API_KEY;
+            const model = Cookies.get('model') || DEFAULT_MODEL;
             const userInput = document.getElementById('userInput');
             const chatContainer = document.getElementById('chatContainer');
-
-            if (!apiUrl || !apiKey || !model) {
-                alert('请填写所有API信息！');
-                return;
-            }
 
             const userMessage = userInput.value.trim();
             if (!userMessage) return;
@@ -329,13 +605,16 @@
 
             conversationHistory.push({role: "user", content: userMessage});
 
+            const htmlCode = document.getElementById('htmlInput').value;
             const systemMessage = `你是一个HTML代码专家，擅长编写和解释HTML代码。请记住以下几点：
 1. 将HTML代码放在 \`\`\`html 代码块中。
 2. 系统会自动将HTML代码块的内容显示在预览窗口中。
 3. 请生成完整的代码，不要省略任何内容。
 4. 生成的代码应该可以直接复制使用，无需额外修改。
 5. 如果用户提供了初始HTML代码，请基于该代码进行修改或解释。
-6. 请确保生成的HTML代码同时适配手机和电脑界面，使用响应式设计。`;
+6. 请确保生成的HTML代码同时适配手机和电脑界面，使用响应式设计。
+当前HTML代码：
+${htmlCode}`;
 
             try {
                 const response = await fetch(apiUrl, {
@@ -392,6 +671,7 @@
 
                 conversationHistory.push({role: "assistant", content: aiMessage});
                 checkAndPreviewHTML(aiMessage);
+                saveConversations();
             } catch (error) {
                 addMessage(`错误：${error.message}`, false);
             }
@@ -405,6 +685,10 @@
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-actions';
             
+            const reRequestButton = document.createElement('button');
+            reRequestButton.textContent = '重新请求';
+            reRequestButton.onclick = () => reRequest(messageDiv);
+            
             const editButton = document.createElement('button');
             editButton.textContent = '编辑';
             editButton.onclick = () => editMessage(messageDiv, isUser);
@@ -413,6 +697,7 @@
             deleteButton.textContent = '删除';
             deleteButton.onclick = () => deleteMessage(messageDiv);
             
+            actionsDiv.appendChild(reRequestButton);
             actionsDiv.appendChild(editButton);
             actionsDiv.appendChild(deleteButton);
             
@@ -449,6 +734,7 @@
             
             window.currentEditMessage = { div: messageDiv, isUser: isUser };
         }
+
         function saveEdit() {
             const editTextarea = document.getElementById('editTextarea');
             const newContent = editTextarea.value;
@@ -463,6 +749,7 @@
             }
             
             closeEditModal();
+            saveConversations();
         }
 
         function closeEditModal() {
@@ -475,7 +762,15 @@
                 const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
                 conversationHistory.splice(index, 1);
                 messageDiv.remove();
+                saveConversations();
             }
+        }
+
+        function reRequest(messageDiv) {
+            const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
+            const userMessage = conversationHistory[index - 1].content;
+            userInput.value = userMessage;
+            sendMessage();
         }
 
         function updateConversationHistory(messageDiv, newContent, isUser) {
@@ -496,6 +791,7 @@
                 updatePreview(htmlCode);
                 htmlHistory.push(htmlCode);
                 currentHtmlIndex = htmlHistory.length - 1;
+                saveConversations();
             }
         }
 
@@ -515,6 +811,7 @@
                 const previousHtml = htmlHistory[currentHtmlIndex];
                 updateHtmlInput(previousHtml);
                 updatePreview(previousHtml);
+                saveConversations();
             } else {
                 alert('没有更早的HTML代码了');
             }
@@ -526,6 +823,7 @@
                 const nextHtml = htmlHistory[currentHtmlIndex];
                 updateHtmlInput(nextHtml);
                 updatePreview(nextHtml);
+                saveConversations();
             } else {
                 alert('没有更新的HTML代码了');
             }
@@ -539,7 +837,19 @@
                 updatePreview(htmlCode);
                 htmlHistory.push(htmlCode);
                 currentHtmlIndex = htmlHistory.length - 1;
+                saveConversations();
             });
+
+            loadConversations();
+            
+            // 加载API设置
+            const savedApiUrl = Cookies.get('apiUrl');
+            const savedApiKey = Cookies.get('apiKey');
+            const savedModel = Cookies.get('model');
+            
+            if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
+            if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+            if (savedModel) document.getElementById('model').value = savedModel;
         });
     </script>
 </body>
