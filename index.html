@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI HTML助手Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary-color: rgba(0, 102, 204, 0.8);
+            --secondary-color: rgba(21, 101, 192, 0.8);
+            --accent-color: rgba(249, 168, 37, 0.8);
+            --background-color: rgba(240, 248, 255, 0.8);
+            --card-color: rgba(255, 255, 255, 0.8);
+            --text-color: rgba(51, 51, 51, 0.9);
+            --code-background: rgba(44, 62, 80, 0.8);
+            --code-color: rgba(236, 240, 241, 0.9);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card {
+            background-color: var(--card-color);
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--secondary-color);
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        #chatContainer {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            min-height: 300px;
+            max-height: 50vh;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .message-content {
+            background-color: var(--card-color);
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .user-message .message-content {
+            background-color: rgba(227, 242, 253, 0.8);
+        }
+
+        .message-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 5px;
+        }
+
+        .message-actions button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 5px;
+            border-radius: 10px;
+        }
+
+        #inputContainer {
+            display: flex;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        #userInput {
+            flex-grow: 1;
+            margin-right: 10px;
+            min-height: 20px;
+            max-height: 100px;
+            overflow-y: auto;
+            resize: vertical;
+        }
+
+        #previewContainer {
+            width: 100%;
+            height: 500px;
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #apiSettingsBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        #apiSettingsModal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: var(--card-color);
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 20px;
+            width: 80%;
+            max-width: 500px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #editModal {
+            display: none;
+            position: fixed;
+            z-index: 1002;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        #editTextarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        .code-block {
+            background-color: var(--code-background);
+            color: var(--code-color);
+            border-radius: 10px;
+            padding: 10px;
+            overflow-x: auto;
+            font-family: monospace;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            #chatContainer {
+                max-height: 40vh;
+            }
+
+            #previewContainer {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI HTML助手Pro</h1>
+        
+        <div id="chatContainer" class="card"></div>
+        
+        <div id="inputContainer">
+            <textarea id="userInput" placeholder="输入你的问题或指令" rows="1"></textarea>
+            <button onclick="sendMessage()">发送</button>
+        </div>
+
+        <div class="card">
+            <label for="htmlInput">HTML代码：</label>
+            <textarea id="htmlInput" rows="5" placeholder="这里显示最新的HTML代码"></textarea>
+            <button onclick="showPreviousHtml()">上一个代码</button>
+            <button onclick="showNextHtml()">下一个代码</button>
+        </div>
+    </div>
+
+    <button id="apiSettingsBtn">API设置</button>
+
+    <div id="apiSettingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>API设置</h2>
+            <label for="apiUrl">API地址：</label>
+            <input type="text" id="apiUrl" placeholder="输入API地址">
+            
+            <label for="apiKey">API密钥：</label>
+            <input type="password" id="apiKey" placeholder="输入API密钥">
+            
+            <label for="model">模型名称：</label>
+            <input type="text" id="model" placeholder="输入模型名称，如gpt-3.5-turbo">
+            
+            <button onclick="saveApiSettings()">保存设置</button>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <textarea id="editTextarea"></textarea>
+            <button onclick="saveEdit()">保存</button>
+            <button onclick="closeEditModal()">取消</button>
+        </div>
+    </div>
+
+    <iframe id="previewContainer"></iframe>
+
+    <script>
+        let conversationHistory = [];
+        let htmlHistory = [];
+        let currentHtmlIndex = -1;
+
+        // API设置相关
+        const apiSettingsBtn = document.getElementById('apiSettingsBtn');
+        const apiSettingsModal = document.getElementById('apiSettingsModal');
+        const closeBtn = apiSettingsModal.querySelector('.close');
+
+        apiSettingsBtn.onclick = function() {
+            apiSettingsModal.style.display = "block";
+        }
+
+        closeBtn.onclick = function() {
+            apiSettingsModal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == apiSettingsModal) {
+                apiSettingsModal.style.display = "none";
+            }
+        }
+
+        function saveApiSettings() {
+            // 这里可以添加保存API设置的逻辑
+            apiSettingsModal.style.display = "none";
+        }
+
+        // 自动调整文本区域高度
+        const userInput = document.getElementById('userInput');
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        async function sendMessage() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const model = document.getElementById('model').value;
+            const userInput = document.getElementById('userInput');
+            const chatContainer = document.getElementById('chatContainer');
+
+            if (!apiUrl || !apiKey || !model) {
+                alert('请填写所有API信息！');
+                return;
+            }
+
+            const userMessage = userInput.value.trim();
+            if (!userMessage) return;
+
+            addMessage(userMessage, true);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            conversationHistory.push({role: "user", content: userMessage});
+
+            const systemMessage = `你是一个HTML代码专家，擅长编写和解释HTML代码。请记住以下几点：
+1. 将HTML代码放在 \`\`\`html 代码块中。
+2. 系统会自动将HTML代码块的内容显示在预览窗口中。
+3. 请生成完整的代码，不要省略任何内容。
+4. 生成的代码应该可以直接复制使用，无需额外修改。
+5. 如果用户提供了初始HTML代码，请基于该代码进行修改或解释。
+6. 请确保生成的HTML代码同时适配手机和电脑界面，使用响应式设计。`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            {role: "system", content: systemMessage},
+                            ...conversationHistory
+                        ],
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('API请求失败');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let aiMessage = '';
+
+                const messageElement = addMessage('', false);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') break;
+                            try {
+                                const parsed = JSON.parse(data);
+                                const content = parsed.choices[0].delta.content || '';
+                                aiMessage += content;
+                                messageElement.innerHTML = marked.parse(aiMessage);
+                                applyCodeBlockStyle(messageElement);
+                            } catch (error) {
+                                console.error('解析错误:', error);
+                            }
+                        }
+                    }
+                }
+
+                conversationHistory.push({role: "assistant", content: aiMessage});
+                checkAndPreviewHTML(aiMessage);
+            } catch (error) {
+                addMessage(`错误：${error.message}`, false);
+            }
+        }
+
+        function addMessage(content, isUser) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'message-actions';
+            
+            const editButton = document.createElement('button');
+            editButton.textContent = '编辑';
+            editButton.onclick = () => editMessage(messageDiv, isUser);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = '删除';
+            deleteButton.onclick = () => deleteMessage(messageDiv);
+            
+            actionsDiv.appendChild(editButton);
+            actionsDiv.appendChild(deleteButton);
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.innerHTML = isUser ? content : marked.parse(content);
+            
+            messageDiv.appendChild(actionsDiv);
+            messageDiv.appendChild(messageContent);
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            if (!isUser) {
+                applyCodeBlockStyle(messageContent);
+            }
+            
+            return messageContent;
+        }
+
+        function applyCodeBlockStyle(element) {
+            const codeBlocks = element.querySelectorAll('pre code');
+            codeBlocks.forEach(block => {
+                block.parentNode.classList.add('code-block');
+            });
+        }
+
+        function editMessage(messageDiv, isUser) {
+            const content = messageDiv.querySelector('.message-content').textContent;
+            const editModal = document.getElementById('editModal');
+            const editTextarea = document.getElementById('editTextarea');
+            
+            editTextarea.value = content;
+            editModal.style.display = 'block';
+            
+            window.currentEditMessage = { div: messageDiv, isUser: isUser };
+        }
+        function saveEdit() {
+            const editTextarea = document.getElementById('editTextarea');
+            const newContent = editTextarea.value;
+            const { div, isUser } = window.currentEditMessage;
+            
+            div.querySelector('.message-content').innerHTML = isUser ? newContent : marked.parse(newContent);
+            updateConversationHistory(div, newContent, isUser);
+            
+            if (!isUser) {
+                applyCodeBlockStyle(div.querySelector('.message-content'));
+                checkAndPreviewHTML(newContent);
+            }
+            
+            closeEditModal();
+        }
+
+        function closeEditModal() {
+            const editModal = document.getElementById('editModal');
+            editModal.style.display = 'none';
+        }
+
+        function deleteMessage(messageDiv) {
+            if (confirm('确定要删除这条消息吗？')) {
+                const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
+                conversationHistory.splice(index, 1);
+                messageDiv.remove();
+            }
+        }
+
+        function updateConversationHistory(messageDiv, newContent, isUser) {
+            const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
+            conversationHistory[index] = {
+                role: isUser ? "user" : "assistant",
+                content: newContent
+            };
+        }
+
+        function checkAndPreviewHTML(content) {
+            const htmlCodeRegex = /```html([\s\S]*?)```/;
+            const match = content.match(htmlCodeRegex);
+            
+            if (match) {
+                const htmlCode = match[1].trim();
+                updateHtmlInput(htmlCode);
+                updatePreview(htmlCode);
+                htmlHistory.push(htmlCode);
+                currentHtmlIndex = htmlHistory.length - 1;
+            }
+        }
+
+        function updateHtmlInput(htmlCode) {
+            const htmlInput = document.getElementById('htmlInput');
+            htmlInput.value = htmlCode;
+        }
+
+        function updatePreview(htmlCode) {
+            const previewContainer = document.getElementById('previewContainer');
+            previewContainer.srcdoc = htmlCode;
+        }
+
+        function showPreviousHtml() {
+            if (currentHtmlIndex > 0) {
+                currentHtmlIndex--;
+                const previousHtml = htmlHistory[currentHtmlIndex];
+                updateHtmlInput(previousHtml);
+                updatePreview(previousHtml);
+            } else {
+                alert('没有更早的HTML代码了');
+            }
+        }
+
+        function showNextHtml() {
+            if (currentHtmlIndex < htmlHistory.length - 1) {
+                currentHtmlIndex++;
+                const nextHtml = htmlHistory[currentHtmlIndex];
+                updateHtmlInput(nextHtml);
+                updatePreview(nextHtml);
+            } else {
+                alert('没有更新的HTML代码了');
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            const htmlInput = document.getElementById('htmlInput');
+            htmlInput.addEventListener('input', () => {
+                const htmlCode = htmlInput.value;
+                updatePreview(htmlCode);
+                htmlHistory.push(htmlCode);
+                currentHtmlIndex = htmlHistory.length - 1;
+            });
+        });
+    </script>
+</body>
+</html>
