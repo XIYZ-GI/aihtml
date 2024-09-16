@@ -43,22 +43,11 @@
             margin-bottom: 20px;
             backdrop-filter: blur(5px);
             transition: all 0.3s ease;
-            animation: fadeIn 0.5s ease;
         }
 
         .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(20px); }
         }
 
         h1, h2 {
@@ -217,7 +206,6 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0,0,0,0.4);
-            animation: fadeIn 0.3s ease;
             overflow-y: auto;
         }
 
@@ -413,15 +401,87 @@
     </div>
 
     <script>
+        let db;
+        let currentConversationId = null;
         let conversationHistory = [];
         let htmlHistory = [];
         let currentHtmlIndex = -1;
-        let conversations = [];
-        let currentConversationIndex = -1;
+
+        const DB_NAME = 'AIHTMLAssistantDB';
+        const DB_VERSION = 1;
+        const CONVERSATION_STORE = 'conversations';
 
         const DEFAULT_API_URL = 'https://api2.nuoxero.xyz/v1/chat/completions';
-        const DEFAULT_API_KEY = 'sk-kcxdSCZqEVX1hwDfA5Ce2884EcE84dCdB6C63d0f09021e11';
+        const DEFAULT_API_KEY = 'sk-wYSTNHSigWoPBwtR97425f8251F94dF5B34954462eAe4005';
         const DEFAULT_MODEL = 'gpt-4o';
+
+        // IndexedDB 初始化
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = (event) => reject("IndexedDB error: " + event.target.error);
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    const objectStore = db.createObjectStore(CONVERSATION_STORE, { keyPath: "id" });
+                    objectStore.createIndex("name", "name", { unique: false });
+                };
+            });
+        }
+
+        // 保存对话
+        function saveConversation(conversation) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([CONVERSATION_STORE], "readwrite");
+                const objectStore = transaction.objectStore(CONVERSATION_STORE);
+                const request = objectStore.put(conversation);
+
+                request.onerror = (event) => reject("保存对话失败: " + event.target.error);
+                request.onsuccess = (event) => resolve(event.target.result);
+            });
+        }
+
+        // 获取所有对话
+        function getAllConversations() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([CONVERSATION_STORE], "readonly");
+                const objectStore = transaction.objectStore(CONVERSATION_STORE);
+                const request = objectStore.getAll();
+
+                request.onerror = (event) => reject("获取对话失败: " + event.target.error);
+                request.onsuccess = (event) => resolve(event.target.result);
+            });
+        }
+
+        // 获取单个对话
+        function getConversation(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([CONVERSATION_STORE], "readonly");
+                const objectStore = transaction.objectStore(CONVERSATION_STORE);
+                const request = objectStore.get(id);
+
+                request.onerror = (event) => reject("获取对话失败: " + event.target.error);
+                request.onsuccess = (event) => resolve(event.target.result);
+            });
+        }
+
+        // 删除对话
+        function deleteConversation(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([CONVERSATION_STORE], "readwrite");
+                const objectStore = transaction.objectStore(CONVERSATION_STORE);
+                const request = objectStore.delete(id);
+
+                request.onerror = (event) => reject("删除对话失败: " + event.target.error);
+                request.onsuccess = (event) => resolve();
+            });
+        }
 
         // API设置相关
         const apiSettingsBtn = document.getElementById('apiSettingsBtn');
@@ -468,9 +528,9 @@
                 apiUrl += '/v1/chat/completions';
             }
 
-            Cookies.set('apiUrl', apiUrl);
-            Cookies.set('apiKey', apiKey);
-            Cookies.set('model', model);
+            Cookies.set('apiUrl', apiUrl, { expires: 365 });
+            Cookies.set('apiKey', apiKey, { expires: 365 });
+            Cookies.set('model', model, { expires: 365 });
 
             apiSettingsModal.style.display = "none";
         }
@@ -482,23 +542,22 @@
             this.style.height = (this.scrollHeight) + 'px';
         });
 
-        function createNewConversation() {
+        async function createNewConversation() {
             const newConversation = {
                 id: Date.now(),
-                name: `对话 ${conversations.length + 1}`,
+                name: `对话 ${await getAllConversations().then(conversations => conversations.length + 1)}`,
                 messages: [],
                 htmlHistory: [],
                 currentHtmlIndex: -1
             };
-            conversations.unshift(newConversation);
-            currentConversationIndex = 0;
-            saveConversations();
-            loadConversation(currentConversationIndex);
+            await saveConversation(newConversation);
+            await loadConversation(newConversation.id);
+            updateConversationList();
         }
 
-        function loadConversation(index) {
-            currentConversationIndex = index;
-            const conversation = conversations[index];
+        async function loadConversation(id) {
+            currentConversationId = id;
+            const conversation = await getConversation(id);
             conversationHistory = conversation.messages;
             htmlHistory = conversation.htmlHistory;
             currentHtmlIndex = conversation.currentHtmlIndex;
@@ -518,26 +577,15 @@
             }
         }
 
-        function saveConversations() {
-            Cookies.set('conversations', JSON.stringify(conversations));
-        }
-
-        function loadConversations() {
-            const savedConversations = Cookies.get('conversations');
-            if (savedConversations) {
-                conversations = JSON.parse(savedConversations);
-                updateConversationList();
-            }
-        }
-
-        function updateConversationList() {
+        async function updateConversationList() {
+            const conversations = await getAllConversations();
             const conversationList = document.getElementById('conversationList');
             conversationList.innerHTML = '';
-            conversations.forEach((conversation, index) => {
+            conversations.forEach((conversation) => {
                 const li = document.createElement('li');
                 const nameSpan = document.createElement('span');
                 nameSpan.textContent = conversation.name;
-                nameSpan.onclick = () => loadConversation(index);
+                nameSpan.onclick = () => loadConversation(conversation.id);
                 
                 const actionsDiv = document.createElement('div');
                 actionsDiv.className = 'conversation-actions';
@@ -547,7 +595,7 @@
                 renameButton.className = 'rename-conversation';
                 renameButton.onclick = (e) => {
                     e.stopPropagation();
-                    renameConversation(index);
+                    renameConversation(conversation.id);
                 };
 
                 const deleteButton = document.createElement('button');
@@ -555,7 +603,7 @@
                 deleteButton.className = 'delete-conversation';
                 deleteButton.onclick = (e) => {
                     e.stopPropagation();
-                    deleteConversation(index);
+                    deleteConversation(conversation.id);
                 };
                 
                 actionsDiv.appendChild(renameButton);
@@ -566,19 +614,19 @@
             });
         }
 
-        function deleteConversation(index) {
+        async function deleteConversation(id) {
             if (confirm('确定要删除这个对话吗？')) {
-                conversations.splice(index, 1);
-                saveConversations();
+                await deleteConversation(id);
                 updateConversationList();
             }
         }
 
-        function renameConversation(index) {
-            const newName = prompt('请输入新的对话名称：', conversations[index].name);
+        async function renameConversation(id) {
+            const conversation = await getConversation(id);
+            const newName = prompt('请输入新的对话名称：', conversation.name);
             if (newName) {
-                conversations[index].name = newName;
-                saveConversations();
+                conversation.name = newName;
+                await saveConversation(conversation);
                 updateConversationList();
             }
         }
@@ -673,7 +721,7 @@ ${htmlCode}`;
 
                 conversationHistory.push({role: "assistant", content: aiMessage});
                 checkAndPreviewHTML(aiMessage);
-                saveConversations();
+                await saveCurrentConversation();
             } catch (error) {
                 addMessage(`错误：${error.message}`, false);
             }
@@ -737,13 +785,13 @@ ${htmlCode}`;
             window.currentEditMessage = { div: messageDiv, isUser: isUser };
         }
 
-        function saveEdit() {
+        async function saveEdit() {
             const editTextarea = document.getElementById('editTextarea');
             const newContent = editTextarea.value;
             const { div, isUser } = window.currentEditMessage;
             
             div.querySelector('.message-content').innerHTML = isUser ? newContent : marked.parse(newContent);
-            updateConversationHistory(div, newContent, isUser);
+            await updateConversationHistory(div, newContent, isUser);
             
             if (!isUser) {
                 applyCodeBlockStyle(div.querySelector('.message-content'));
@@ -751,7 +799,7 @@ ${htmlCode}`;
             }
             
             closeEditModal();
-            saveConversations();
+            await saveCurrentConversation();
         }
 
         function closeEditModal() {
@@ -759,12 +807,12 @@ ${htmlCode}`;
             editModal.style.display = 'none';
         }
 
-        function deleteMessage(messageDiv) {
+        async function deleteMessage(messageDiv) {
             if (confirm('确定要删除这条消息吗？')) {
                 const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
                 conversationHistory.splice(index, 1);
                 messageDiv.remove();
-                saveConversations();
+                await saveCurrentConversation();
             }
         }
 
@@ -775,7 +823,7 @@ ${htmlCode}`;
             sendMessage();
         }
 
-        function updateConversationHistory(messageDiv, newContent, isUser) {
+        async function updateConversationHistory(messageDiv, newContent, isUser) {
             const index = Array.from(messageDiv.parentNode.children).indexOf(messageDiv);
             conversationHistory[index] = {
                 role: isUser ? "user" : "assistant",
@@ -793,7 +841,6 @@ ${htmlCode}`;
                 updatePreview(htmlCode);
                 htmlHistory.push(htmlCode);
                 currentHtmlIndex = htmlHistory.length - 1;
-                saveConversations();
             }
         }
 
@@ -813,7 +860,7 @@ ${htmlCode}`;
                 const previousHtml = htmlHistory[currentHtmlIndex];
                 updateHtmlInput(previousHtml);
                 updatePreview(previousHtml);
-                saveConversations();
+                saveCurrentConversation();
             } else {
                 alert('没有更早的HTML代码了');
             }
@@ -825,24 +872,36 @@ ${htmlCode}`;
                 const nextHtml = htmlHistory[currentHtmlIndex];
                 updateHtmlInput(nextHtml);
                 updatePreview(nextHtml);
-                saveConversations();
+                saveCurrentConversation();
             } else {
                 alert('没有更新的HTML代码了');
             }
         }
 
+        async function saveCurrentConversation() {
+            if (currentConversationId) {
+                const conversation = await getConversation(currentConversationId);
+                conversation.messages = conversationHistory;
+                conversation.htmlHistory = htmlHistory;
+                conversation.currentHtmlIndex = currentHtmlIndex;
+                await saveConversation(conversation);
+            }
+        }
+
         // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        async function init() {
+            await initDB();
+            
             const htmlInput = document.getElementById('htmlInput');
-            htmlInput.addEventListener('input', () => {
+            htmlInput.addEventListener('input', async () => {
                 const htmlCode = htmlInput.value;
                 updatePreview(htmlCode);
                 htmlHistory.push(htmlCode);
                 currentHtmlIndex = htmlHistory.length - 1;
-                saveConversations();
+                await saveCurrentConversation();
             });
 
-            loadConversations();
+            updateConversationList();
             
             // 加载API设置
             const savedApiUrl = Cookies.get('apiUrl');
@@ -852,7 +911,9 @@ ${htmlCode}`;
             if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
             if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
             if (savedModel) document.getElementById('model').value = savedModel;
-        });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
